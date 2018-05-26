@@ -1,11 +1,15 @@
 package com.example.android.pets.data;
 
 import android.content.ContentProvider;
+import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.UriMatcher;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 /*
 * Content Provider for Pets
@@ -15,7 +19,18 @@ import android.support.annotation.Nullable;
 * */
 public class PetProvider extends ContentProvider {
 
+    /** Tag for the log messages */
+    public static final String LOG_TAG = PetProvider.class.getSimpleName();
+
+    private static final int PETS = 100;
+    private static final int PETS_ID = 101;
     private PetDbHelper mDbHelper;
+    private static final UriMatcher sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+
+    static {
+        sUriMatcher.addURI(PetContract.CONTENT_AUTHORITY, PetContract.PATH_PETS, PETS);
+        sUriMatcher.addURI(PetContract.CONTENT_AUTHORITY, PetContract.PATH_PETS + "/#", PETS_ID);
+    }
 
     @Override
     public boolean onCreate() {
@@ -25,8 +40,36 @@ public class PetProvider extends ContentProvider {
 
     @Nullable
     @Override
-    public Cursor query(@NonNull Uri uri, @Nullable String[] strings, @Nullable String s, @Nullable String[] strings1, @Nullable String s1) {
-        return null;
+    public Cursor query(@NonNull Uri uri, @Nullable String[] projection, @Nullable String selection, @Nullable String[] selectionArgs, @Nullable String sortOrder) {
+        SQLiteDatabase database = mDbHelper.getReadableDatabase();
+        Cursor cursor;
+        int match = sUriMatcher.match(uri);
+        switch (match){
+            case PETS:
+                cursor = database.query(PetContract.PetEntry.TABLE_NAME,
+                        projection,
+                        selection,
+                        selectionArgs,
+                        null,
+                        null,
+                        sortOrder
+                        );
+                break;
+            case PETS_ID:
+                selection = PetContract.PetEntry._ID + "=?";
+                selectionArgs = new String[] {String.valueOf(ContentUris.parseId(uri))};
+                cursor = database.query(PetContract.PetEntry.TABLE_NAME,
+                        projection,
+                        selection,
+                        selectionArgs,
+                        null,
+                        null,
+                        sortOrder);
+                break;
+                default:
+                    throw new IllegalArgumentException("Cannot query unknown Uri:"+uri);
+        }
+        return cursor;
     }
 
     @Nullable
@@ -38,7 +81,23 @@ public class PetProvider extends ContentProvider {
     @Nullable
     @Override
     public Uri insert(@NonNull Uri uri, @Nullable ContentValues contentValues) {
-        return null;
+        final int match = sUriMatcher.match(uri);
+        switch (match){
+            case PETS:
+                return insertPet(uri, contentValues);
+            default:
+                throw new IllegalArgumentException("Insertion is not supported for " + uri);
+        }
+    }
+
+    private Uri insertPet(Uri uri, ContentValues contentValues) {
+        SQLiteDatabase database = mDbHelper.getWritableDatabase();
+        long id = database.insert(PetContract.PetEntry.TABLE_NAME, null,contentValues);
+        if (id == -1){
+            Log.e(LOG_TAG, "Failed to insert row for " + uri);
+            return null;
+        }
+        return ContentUris.withAppendedId(uri, id);
     }
 
     @Override
