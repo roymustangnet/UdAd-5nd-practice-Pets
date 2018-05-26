@@ -18,15 +18,14 @@ package com.example.android.pets;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ListView;
 import android.widget.TextView;
 
 import com.example.android.pets.data.PetContract.PetEntry;
@@ -58,6 +57,7 @@ public class CatalogActivity extends AppCompatActivity {
 
         mDbHelper = new PetDbHelper(this);
         displayDatabaseInfo();
+
 
     }
 
@@ -100,9 +100,15 @@ public class CatalogActivity extends AppCompatActivity {
             // Respond to a click on the "Delete all entries" menu option
             case R.id.action_delete_all_entries:
                 // Do nothing for now
+                deletePet();
+                displayDatabaseInfo();
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void deletePet() {
+        getContentResolver().delete(PetEntry.CONTENT_URI,null, null);
     }
 
     /**
@@ -124,15 +130,12 @@ public class CatalogActivity extends AppCompatActivity {
 
         Cursor cursor = getContentResolver().query(PetEntry.CONTENT_URI,project, null, null,null);
 
-        try {
-            // Display the number of rows in the Cursor (which reflects the number of rows in the
-            // pets table in the database).
-            TextView displayView = (TextView) findViewById(R.id.text_view_pet);
-            displayView.setText("Number of rows in pets database table: " + cursor.getCount());
-        } finally {
-            // Always close the cursor when you're done reading from it. This releases all its
-            // resources and makes it invalid.
-            cursor.close();
-        }
+        PetCursorAdapter adapter = new PetCursorAdapter(this, cursor);
+        ListView petListView = (ListView) findViewById(R.id.list);
+        petListView.setAdapter(adapter);
+
+        // Find and set empty view on the ListView, so that it only shows when the list has 0 items.
+        View emptyView = findViewById(R.id.empty_view);
+        petListView.setEmptyView(emptyView);
     }
 }
