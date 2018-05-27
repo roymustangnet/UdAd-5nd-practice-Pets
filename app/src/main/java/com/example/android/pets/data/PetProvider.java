@@ -69,6 +69,10 @@ public class PetProvider extends ContentProvider {
                 default:
                     throw new IllegalArgumentException("Cannot query unknown Uri:"+uri);
         }
+
+        cursor.setNotificationUri(getContext().getContentResolver(),
+                uri);
+
         return cursor;
     }
 
@@ -120,25 +124,35 @@ public class PetProvider extends ContentProvider {
             Log.e(LOG_TAG, "Failed to insert row for " + uri);
             return null;
         }
+
+        getContext().getContentResolver().notifyChange(uri, null);
+
         return ContentUris.withAppendedId(uri, id);
     }
 
     @Override
     public int delete(@NonNull Uri uri, @Nullable String selection, @Nullable String[] selectionArgs) {
         final int match = sUriMatcher.match(uri);
+        int rowsDeleted;
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
         switch (match){
             case PETS:
                 // Delete all rows that match the selection and selection args
-                return database.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+                rowsDeleted = database.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+                break;
             case PETS_ID:
                 // Delete a single row given by the ID in the URI
                 selection = PetContract.PetEntry._ID + "=?";
                 selectionArgs = new String[] { String.valueOf(ContentUris.parseId(uri)) };
-                return database.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+                rowsDeleted = database.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+                break;
             default:
                 throw new IllegalArgumentException("Deletion is not supported for " + uri);
         }
+        if (rowsDeleted != 0) {
+            getContext().getContentResolver().notifyChange(uri, null);
+        }
+        return rowsDeleted;
     }
 
     @Override
@@ -195,7 +209,11 @@ public class PetProvider extends ContentProvider {
 
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
 
-        return database.update(PetContract.PetEntry.TABLE_NAME,values,selection, selectionArgs);
+        int rowsUpdated = database.update(PetContract.PetEntry.TABLE_NAME, values, selection, selectionArgs);
+        if (rowsUpdated != 0) {
+            getContext().getContentResolver().notifyChange(uri, null);
+        }
+        return rowsUpdated;
     }
 
 
